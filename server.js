@@ -3,8 +3,9 @@ const bodyParser = require('body-parser');
 const graphqlHTTP = require('express-graphql');
 const { buildSchema } = require('graphql');
 const mongoose = require('mongoose');
-
+const bcrypt = require('bcryptjs');
 const Comment = require('./db_models/comment');
+const User = require('./db_models/user');
 
 const schema = buildSchema(`
     type Comment {
@@ -13,16 +14,26 @@ const schema = buildSchema(`
         text: String!
         date: String!
     }
+    type User {
+      _id: ID!
+      email: String!
+      password: String
+    }
     input CommentInput {
         title:String!
         text:String!
         date:String!
     }
+    input UserInput {
+      email: String!
+      password: String!
+    }
     type RootQuery {
         comments: [Comment!]!
     }
     type RootMutation {
-        createComment(commentInput:CommentInput):Comment
+        createComment(commentInput:CommentInput): Comment
+        createUser(userInput:UserInput): User
     }
     schema {
         query: RootQuery
@@ -30,7 +41,7 @@ const schema = buildSchema(`
     }
 `);
 
-const resolver = {
+const resolvers = {
   comments: async () => {
     try {
       const comments = await Comment.find();
@@ -47,8 +58,22 @@ const resolver = {
       date: new Date(args.commentInput.date)
     });
     try {
-      const result = await comment.save();
-      return result;
+      const createdComment = await comment.save();
+      return createdComment;
+    } catch (e) {
+      console.log(e);
+      throw e;
+    }
+  },
+  createUser: async args => {
+    try {
+      const hashedPassword = await bcrypt.hash(args.userInput.password, 12);
+      const user = new User({
+        email: args.userInput.email,
+        password: hashedPassword
+      });
+      const createdUser = await user.save();
+      return createdUser;
     } catch (e) {
       console.log(e);
       throw e;
@@ -62,7 +87,7 @@ app.use(
   '/graphql',
   graphqlHTTP({
     schema: schema,
-    rootValue: resolver,
+    rootValue: resolvers,
     graphiql: true
   })
 );
@@ -75,5 +100,9 @@ mongoose
     }@cluster0-zcd64.mongodb.net/${process.env.MONGO_DB}?retryWrites=true`,
     { useNewUrlParser: true }
   )
-  .then(() => app.listen(4000, () => console.log('server is up on 4000s')))
+  .then(() =>
+    app.listen(4000, () =>
+      console.log(`server is up on 4000, mongo name ${process.env.MONGO_DB}`)
+    )
+  )
   .catch(e => console.log(e));
