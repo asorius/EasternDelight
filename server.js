@@ -7,17 +7,31 @@ const bcrypt = require('bcryptjs');
 const Comment = require('./db_models/comment');
 const User = require('./db_models/user');
 
+const user = async userId => {
+  console.log('func started');
+  try {
+    const user = await User.findById(userId);
+    console.log(user);
+    return user;
+  } catch (e) {
+    throw e;
+  }
+};
+
 const schema = buildSchema(`
     type Comment {
         _id:ID!
         title: String!
         text: String!
         date: String!
+        createdBy: User!
     }
     type User {
       _id: ID!
       email: String!
       password: String
+      createdComments: [Comment!]
+      favourites: [String]
     }
     input CommentInput {
         title:String!
@@ -45,9 +59,14 @@ const resolvers = {
   comments: async () => {
     try {
       const comments = await Comment.find();
+      comments.forEach(comment => {
+        return {
+          ...comment,
+          createdBy: user.bind(this, comment.createdBy)
+        };
+      });
       return comments;
     } catch (e) {
-      console.log(e);
       throw e;
     }
   },
