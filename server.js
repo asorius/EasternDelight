@@ -55,11 +55,19 @@ const resolvers = {
     const comment = new Comment({
       title: args.commentInput.title,
       text: args.commentInput.text,
-      date: new Date(args.commentInput.date)
+      date: new Date(args.commentInput.date),
+      createdBy: '5c893d12b49c9b0f35e02d28'
     });
     try {
       const createdComment = await comment.save();
-      return createdComment;
+      const creator = await User.findById('5c893d12b49c9b0f35e02d28');
+      if (creator) {
+        creator.createdComments.push(createdComment);
+        await creator.save();
+        return createdComment;
+      } else {
+        throw new Error("That user doesn't exist");
+      }
     } catch (e) {
       console.log(e);
       throw e;
@@ -67,13 +75,20 @@ const resolvers = {
   },
   createUser: async args => {
     try {
-      const hashedPassword = await bcrypt.hash(args.userInput.password, 12);
-      const user = new User({
-        email: args.userInput.email,
-        password: hashedPassword
+      const userAlreadyExist = await User.findOne({
+        email: args.userInput.email
       });
-      const createdUser = await user.save();
-      return createdUser;
+      if (userAlreadyExist) {
+        throw new Error('User exists already');
+      } else {
+        const hashedPassword = await bcrypt.hash(args.userInput.password, 12);
+        const user = new User({
+          email: args.userInput.email,
+          password: hashedPassword
+        });
+        const createdUser = await user.save();
+        return createdUser;
+      }
     } catch (e) {
       console.log(e);
       throw e;
